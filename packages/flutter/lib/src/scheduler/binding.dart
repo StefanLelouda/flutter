@@ -279,7 +279,7 @@ mixin SchedulerBinding on BindingBase {
   @pragma('vm:notify-debugger-on-exception')
   void _executeTimingsCallbacks(List<FrameTiming> timings) {
     final List<TimingsCallback> clonedCallbacks =
-        List<TimingsCallback>.from(_timingsCallbacks);
+        List<TimingsCallback>.of(_timingsCallbacks);
     for (final TimingsCallback callback in clonedCallbacks) {
       try {
         if (_timingsCallbacks.contains(callback)) {
@@ -562,7 +562,7 @@ mixin SchedulerBinding on BindingBase {
         // even if the information collector is called after
         // the problem has been resolved.
         final int count = transientCallbackCount;
-        final Map<int, _FrameCallbackEntry> callbacks = Map<int, _FrameCallbackEntry>.from(_transientCallbacks);
+        final Map<int, _FrameCallbackEntry> callbacks = Map<int, _FrameCallbackEntry>.of(_transientCallbacks);
         FlutterError.reportError(FlutterErrorDetails(
           exception: reason,
           library: 'scheduler library',
@@ -996,8 +996,7 @@ mixin SchedulerBinding on BindingBase {
     handleDrawFrame();
   }
 
-  TimelineTask? _frameTimelineTask;
-  TimelineTask? _animateTimelineTask;
+  final TimelineTask? _frameTimelineTask = kReleaseMode ? null : TimelineTask();
 
   /// Called by the engine to prepare the framework to produce a new frame.
   ///
@@ -1023,7 +1022,7 @@ mixin SchedulerBinding on BindingBase {
   /// statements printed during a frame from those printed between frames (e.g.
   /// in response to events or timers).
   void handleBeginFrame(Duration? rawTimeStamp) {
-    _frameTimelineTask = TimelineTask()..start('Frame', arguments: timelineArgumentsIndicatingLandmarkEvent);
+    _frameTimelineTask?.start('Frame', arguments: timelineArgumentsIndicatingLandmarkEvent);
     _firstRawTimeStampInEpoch ??= rawTimeStamp;
     _currentFrameTimeStamp = _adjustForEpoch(rawTimeStamp ?? _lastRawTimeStamp);
     if (rawTimeStamp != null)
@@ -1050,7 +1049,7 @@ mixin SchedulerBinding on BindingBase {
     _hasScheduledFrame = false;
     try {
       // TRANSIENT FRAME CALLBACKS
-      _animateTimelineTask = TimelineTask()..start('Animate', arguments: timelineArgumentsIndicatingLandmarkEvent);
+      _frameTimelineTask?.start('Animate', arguments: timelineArgumentsIndicatingLandmarkEvent);
       _schedulerPhase = SchedulerPhase.transientCallbacks;
       final Map<int, _FrameCallbackEntry> callbacks = _transientCallbacks;
       _transientCallbacks = <int, _FrameCallbackEntry>{};
@@ -1075,8 +1074,7 @@ mixin SchedulerBinding on BindingBase {
   /// useful when working with frame callbacks.
   void handleDrawFrame() {
     assert(_schedulerPhase == SchedulerPhase.midFrameMicrotasks);
-    _animateTimelineTask?.finish(); // end the "Animate" phase
-    _animateTimelineTask = null;
+    _frameTimelineTask?.finish(); // end the "Animate" phase
     try {
       // PERSISTENT FRAME CALLBACKS
       _schedulerPhase = SchedulerPhase.persistentCallbacks;
@@ -1086,14 +1084,13 @@ mixin SchedulerBinding on BindingBase {
       // POST-FRAME CALLBACKS
       _schedulerPhase = SchedulerPhase.postFrameCallbacks;
       final List<FrameCallback> localPostFrameCallbacks =
-          List<FrameCallback>.from(_postFrameCallbacks);
+          List<FrameCallback>.of(_postFrameCallbacks);
       _postFrameCallbacks.clear();
       for (final FrameCallback callback in localPostFrameCallbacks)
         _invokeFrameCallback(callback, _currentFrameTimeStamp!);
     } finally {
       _schedulerPhase = SchedulerPhase.idle;
       _frameTimelineTask?.finish(); // end the Frame
-      _frameTimelineTask = null;
       assert(() {
         if (debugPrintEndFrameBanner)
           debugPrint('▀' * _debugBanner!.length);

@@ -29,7 +29,7 @@ import 'routes.dart';
 /// ```
 /// {@end-tool}
 ///
-/// {@tool dartpad --template=stateful_widget_material}
+/// {@tool dartpad}
 ///
 ///
 /// ** See code in examples/api/lib/widgets/will_pop_scope/will_pop_scope.1.dart **
@@ -85,7 +85,6 @@ class _WillPopScopeState extends State<WillPopScope> {
   @override
   void didUpdateWidget(WillPopScope oldWidget) {
     super.didUpdateWidget(oldWidget);
-    assert(_route == ModalRoute.of(context));
     if (widget.onWillPop != oldWidget.onWillPop && _route != null) {
       if (oldWidget.onWillPop != null)
         _route!.removeScopedWillPopCallback(oldWidget.onWillPop!);

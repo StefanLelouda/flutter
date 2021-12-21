@@ -34,6 +34,7 @@
 /dev/devicelab/bin/tasks/flutter_gallery__image_cache_memory.dart @zanderso @flutter/engine
 /dev/devicelab/bin/tasks/flutter_gallery__memory_nav.dart @zanderso @flutter/engine
 /dev/devicelab/bin/tasks/flutter_gallery__start_up.dart @zanderso @flutter/engine
+/dev/devicelab/bin/tasks/flutter_gallery__start_up_delayed.dart @dnfield @flutter/engine
 /dev/devicelab/bin/tasks/flutter_gallery__transition_perf_e2e.dart @zanderso @flutter/engine
 /dev/devicelab/bin/tasks/flutter_gallery__transition_perf_hybrid.dart @zanderso @flutter/engine
 /dev/devicelab/bin/tasks/flutter_gallery__transition_perf_with_semantics.dart @zanderso @flutter/engine
@@ -60,6 +61,11 @@
 /dev/devicelab/bin/tasks/routing_test.dart @zanderso @flutter/tool
 /dev/devicelab/bin/tasks/textfield_perf__e2e_summary.dart @zanderso @flutter/engine
 /dev/devicelab/bin/tasks/web_size__compile_test.dart @yjbanov @flutter/web
+/dev/devicelab/bin/tasks/opacity_peephole_col_of_rows_perf__e2e_summary.dart @flar @flutter/engine
+/dev/devicelab/bin/tasks/opacity_peephole_grid_of_opacity_perf__e2e_summary.dart @flar @flutter/engine
+/dev/devicelab/bin/tasks/opacity_peephole_one_rect_perf__e2e_summary.dart @flar @flutter/engine
+/dev/devicelab/bin/tasks/opacity_peephole_opacity_of_grid_perf__e2e_summary.dart @flar @flutter/engine
+/dev/devicelab/bin/tasks/opacity_peephole_fade_transition_text_perf__e2e_summary.dart @flar @flutter/engine
 
 ## Windows Android DeviceLab tests
 /dev/devicelab/bin/tasks/basic_material_app_win__compile.dart @zanderso @flutter/tool
@@ -173,7 +179,9 @@
 /dev/devicelab/bin/tasks/module_host_with_custom_build_test.dart @zanderso @flutter/tool
 /dev/devicelab/bin/tasks/module_test.dart @zanderso @flutter/tool
 /dev/devicelab/bin/tasks/native_ui_tests_ios.dart @jmagman @flutter/engine
+/dev/devicelab/bin/tasks/native_ui_tests_macos.dart @cbracken @flutter/desktop
 /dev/devicelab/bin/tasks/plugin_test.dart @stuartmorgan @flutter/plugin
+/dev/devicelab/bin/tasks/plugin_test_ios.dart @jmagman @flutter/ios
 /dev/devicelab/bin/tasks/technical_debt__cost.dart @HansMuller @flutter/framework
 /dev/devicelab/bin/tasks/web_benchmarks_canvaskit.dart @yjbanov @flutter/web
 /dev/devicelab/bin/tasks/web_benchmarks_html.dart @yjbanov @flutter/web
@@ -222,6 +230,7 @@
 # web_integration_tests @yjbanov @flutter/web
 # web_long_running_tests @yjbanov @flutter/web
 # web_tests @yjbanov @flutter/web
+# web_canvaskit_tests @yjbanov @flutter/web
 # web_tool_tests @zanderso @flutter/tool
 # fuchsia_precache @zanderso @flutter/tool
 # skp_generator @Hixie

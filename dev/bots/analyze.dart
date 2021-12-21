@@ -51,11 +51,14 @@ Future<void> run(List<String> arguments) async {
     exitWithError(<String>['The analyze.dart script must be run with --enable-asserts.']);
   }
 
-  print('$clock runtimeType in toString...');
+  print('$clock No runtimeType in toString...');
   await verifyNoRuntimeTypeInToString(flutterRoot);
 
-  print('$clock debug mode instead of checked mode...');
+  print('$clock Debug mode instead of checked mode...');
   await verifyNoCheckedMode(flutterRoot);
+
+  print('$clock Links for creating GitHub issues');
+  await verifyIssueLinks(flutterRoot);
 
   print('$clock Unexpected binaries...');
   await verifyNoBinaries(flutterRoot);
@@ -118,10 +121,10 @@ Future<void> run(List<String> arguments) async {
     ...arguments,
   ]);
 
-  // Analyze all the sample code in the repo
+  // Analyze all the sample code in the repo.
   print('$clock Sample code...');
   await runCommand(dart,
-    <String>[path.join(flutterRoot, 'dev', 'bots', 'analyze_sample_code.dart')],
+    <String>[path.join(flutterRoot, 'dev', 'bots', 'analyze_sample_code.dart'), '--verbose'],
     workingDirectory: flutterRoot,
   );
 
@@ -728,6 +731,81 @@ Future<void> verifyNoTrailingSpaces(String workingDirectory, { int minimumMatche
     exitWithError(problems);
 }
 
+String _bullets(String value) => ' * $value';
+
+Future<void> verifyIssueLinks(String workingDirectory) async {
+  const String issueLinkPrefix = 'https://github.com/flutter/flutter/issues/new';
+  const Set<String> stops = <String>{ '\n', ' ', "'", '"', r'\', ')', '>' };
+  assert(!stops.contains('.')); // instead of "visit https://foo." say "visit: https://", it copy-pastes better
+  const String kGiveTemplates =
+    'Prefer to provide a link either to $issueLinkPrefix/choose (the list of issue '
+    'templates) or to a specific template directly ($issueLinkPrefix?template=...).\n';
+  final Set<String> templateNames =
+    Directory(path.join(workingDirectory, '.github', 'ISSUE_TEMPLATE'))
+      .listSync()
+      .whereType<File>()
+      .where((File file) => path.extension(file.path) == '.md')
+      .map<String>((File file) => path.basename(file.path))
+      .toSet();
+  final String kTemplates = 'The available templates are:\n${templateNames.map(_bullets).join("\n")}';
+  final List<String> problems = <String>[];
+  final Set<String> suggestions = <String>{};
+  final List<File> files = await _gitFiles(workingDirectory);
+  for (final File file in files) {
+    if (path.basename(file.path).endsWith('_test.dart'))
+      continue; // Skip tests, they're not public-facing.
+    final Uint8List bytes = file.readAsBytesSync();
+    // We allow invalid UTF-8 here so that binaries don't trip us up.
+    // There's a separate test in this file that verifies that all text
+    // files are actually valid UTF-8 (see verifyNoBinaries below).
+    final String contents = utf8.decode(bytes, allowMalformed: true);
+    int start = 0;
+    while ((start = contents.indexOf(issueLinkPrefix, start)) >= 0) {
+      int end = start + issueLinkPrefix.length;
+      while (end < contents.length && !stops.contains(contents[end])) {
+        end += 1;
+      }
+      final String url = contents.substring(start, end);
+      if (url == issueLinkPrefix) {
+        if (file.path != path.join(workingDirectory, 'dev', 'bots', 'analyze.dart')) {
+          problems.add('${file.path} contains a direct link to $issueLinkPrefix.');
+          suggestions.add(kGiveTemplates);
+          suggestions.add(kTemplates);
+        }
+      } else if (url.startsWith('$issueLinkPrefix?')) {
+        final Uri parsedUrl = Uri.parse(url);
+        final List<String>? templates = parsedUrl.queryParametersAll['template'];
+        if (templates == null) {
+          problems.add('${file.path} contains $url, which has no "template" argument specified.');
+          suggestions.add(kGiveTemplates);
+          suggestions.add(kTemplates);
+        } else if (templates.length != 1) {
+          problems.add('${file.path} contains $url, which has ${templates.length} templates specified.');
+          suggestions.add(kGiveTemplates);
+          suggestions.add(kTemplates);
+        } else if (!templateNames.contains(templates.single)) {
+          problems.add('${file.path} contains $url, which specifies a non-existent template ("${templates.single}").');
+          suggestions.add(kTemplates);
+        } else if (parsedUrl.queryParametersAll.keys.length > 1) {
+          problems.add('${file.path} contains $url, which the analyze.dart script is not sure how to handle.');
+          suggestions.add('Update analyze.dart to handle the URLs above, or change them to the expected pattern.');
+        }
+      } else if (url != '$issueLinkPrefix/choose') {
+        problems.add('${file.path} contains $url, which the analyze.dart script is not sure how to handle.');
+        suggestions.add('Update analyze.dart to handle the URLs above, or change them to the expected pattern.');
+      }
+      start = end;
+    }
+  }
+  assert(problems.isEmpty == suggestions.isEmpty);
+  if (problems.isNotEmpty) {
+    exitWithError(<String>[
+      ...problems,
+      ...suggestions,
+    ]);
+  }
+}
+
 @immutable
 class Hash256 {
   const Hash256(this.a, this.b, this.c, this.d);
@@ -1163,7 +1241,7 @@ Future<void> verifyNoBinaries(String workingDirectory, { Set<Hash256>? legacyBin
   );
   legacyBinaries ??= _legacyBinaries;
   if (!Platform.isWindows) { // TODO(ianh): Port this to Windows
-    final List<File> files = await _gitFiles(workingDirectory, runSilently: false);
+    final List<File> files = await _gitFiles(workingDirectory);
     final List<String> problems = <String>[];
     for (final File file in files) {
       final Uint8List bytes = file.readAsBytesSync();
@@ -1344,47 +1422,39 @@ Future<void> _checkConsumerDependencies() async {
     print(result.stderr as Object);
     exit(result.exitCode);
   }
-  final Set<String> dependencySet = <String>{};
+  final Set<String> dependencies = <String>{};
   for (final String line in result.stdout.toString().split('\n')) {
     if (!line.contains('->')) {
       continue;
     }
     final List<String> parts = line.split('->');
     final String name = parts[0].trim();
-    dependencySet.add(name);
+    dependencies.add(name);
   }
-  final List<String> dependencies = dependencySet.toList()
-    ..sort();
-  final List<String> disallowed = <String>[];
-  final StreamController<Digest> controller = StreamController<Digest>();
-  final ByteConversionSink hasher = sha256.startChunkedConversion(controller.sink);
-  for (final String dependency in dependencies) {
-    hasher.add(utf8.encode(dependency));
-    if (!kCorePackageAllowList.contains(dependency)) {
-      disallowed.add(dependency);
-    }
-  }
-  hasher.close();
-  final Digest digest = await controller.stream.last;
-  final String signature = base64.encode(digest.bytes);
 
-  // Do not change this signature without following the directions in
-  // dev/bots/allowlist.dart
-  const String kExpected = 'nkO7DCjvSMB6VKyw+V9MU46m3xFEk/oYSbmgAWqvbXE=';
+  final Set<String> removed = kCorePackageAllowList.difference(dependencies);
+  final Set<String> added = dependencies.difference(kCorePackageAllowList);
 
-  if (disallowed.isNotEmpty) {
+  String plural(int n, String s, String p) => n == 1 ? s : p;
+
+  if (added.isNotEmpty) {
     exitWithError(<String>[
-      'Warning: transitive closure contained non-allowlisted packages:',
-      '${disallowed..join(', ')}',
-      'See dev/bots/allowlist.dart for instructions on how to update the package allowlist.',
+      'The transitive closure of package dependencies contains ${plural(added.length, "a non-allowlisted package", "non-allowlisted packages")}:',
+      '  ${added.join(', ')}',
+      'We strongly desire to keep the number of dependencies to a minimum and',
+      'therefore would much prefer not to add new dependencies.',
+      'See dev/bots/allowlist.dart for instructions on how to update the package',
+      'allowlist if you nonetheless believe this is a necessary addition.',
     ]);
   }
 
-  if (signature != kExpected) {
+  if (removed.isNotEmpty) {
     exitWithError(<String>[
-      'Warning: transitive closure sha256 does not match expected signature.',
-      'See dev/bots/allowlist.dart for instructions on how to update the package allowlist.',
-      '$signature != $kExpected',
+      'Excellent news! ${plural(removed.length, "A package dependency has been removed!", "Multiple package dependencies have been removed!")}',
+      '  ${removed.join(', ')}',
+      'To make sure we do not accidentally add ${plural(removed.length, "this dependency", "these dependencies")} back in the future,',
+      'please remove ${plural(removed.length, "this", "these")} packages from the allow-list in dev/bots/allowlist.dart.',
+      'Thanks!',
     ]);
   }
 }
